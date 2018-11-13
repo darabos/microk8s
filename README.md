@@ -67,7 +67,7 @@ These addons can be disabled at anytime using the `disable` command
 microk8s.disable dashboard dns
 ```
 
-You can find the addon manifests and/or scripts under `${SNAP}/actions/`, with `${SNAP}` pointing by default to `/snap/microk8s/current`.
+With `microk8s.enable --list` you can see the list of all available addons as well as which ones are currently enabled. You can find the addon manifests and/or scripts under `${SNAP}/actions/`, with `${SNAP}` pointing by default to `/snap/microk8s/current`.
 
 #### List of Available Addons
 - **dns**: Deploy kube dns. This addon may be required by others thus we recommend you always enable it.

@@ -1,0 +1,101 @@
+#!/bin/bash
+
+export PATH="$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$SNAP/lib:$SNAP/usr/lib:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu"
+export LD_LIBRARY_PATH=$SNAP_LIBRARY_PATH:$LD_LIBRARY_PATH
+
+source $SNAP/actions/common/utils.sh
+
+
+function show_help() {
+    prog=$(basename -s.wrapper "$0" | tr - .)
+    echo "Usage: $prog [--yaml] [--wait-ready [--timeout <seconds>]]"
+    echo "Show the status of microks8. Use --yaml to get the response in yaml."
+    echo "To wait for microk8s to become ready use the --wait-ready flag and provide a"
+    echo "waiting timeout."
+    echo ""
+    echo "Example: $prog --wait-ready --timeout 60"
+    echo ""
+}
+
+# Parse arguments. The variables yaml, wait_ready and timeout are filled.
+function parse_args() {
+    while [[ "$#" > 0 ]]
+    do
+        case "$1" in
+            "--help") show_help ; exit 0 ;;
+            "--yaml") yaml=1 ;;
+            "--wait-ready") wait_ready=1 ;;
+            "--timeout") timeout=$2 ; shift ;;
+        esac
+        shift
+    done
+}
+
+# Wait for the timeout of microk8s to say it has a node. If timeout variable is set this method will not block.
+function wait_for_ready() {
+    start_timer="$(date +%s)"
+    while ! (/snap/bin/microk8s.kubectl get all --all-namespaces | grep -z "service/kubernetes") &> /dev/null
+    do
+        now="$(date +%s)"
+        if ! [ -z $timeout ] && [[ "$now" > "$(($start_timer + $timeout))" ]] ; then
+            break
+        fi
+        sleep 2
+    done
+
+    while ! (/snap/bin/microk8s.kubectl get no | grep -z " Ready") &> /dev/null
+    do
+        now="$(date +%s)"
+        if ! [ -z $timeout ] && [[ "$now" > "$(($start_timer + $timeout))" ]] ; then
+            break
+        fi
+        sleep 2
+    done
+}
+
+# Format the output based on the yaml variable. The status variable should be set.
+function format_output() {
+    if ! [ -z ${yaml} ]
+    then
+        if [ "$status" == "Running" ]
+        then
+            echo "microk8s:"
+            echo "  running: true"
+            exit 0
+        else
+            echo "microk8s:"
+            echo "  running: false"
+            exit 1
+        fi
+    else
+        if [ "$status" == "Running" ]
+        then
+            echo "microk8s is running"
+            exit 0
+        else
+            echo "microk8s is not running. Use microk8s.ispect for a deeper inspection."
+            exit 1
+        fi
+    fi
+}
+
+# See if we have timed out or we are running. Sets the status variable.
+function check_ready() {
+    status="Not running"
+    if (/snap/bin/microk8s.kubectl get all --all-namespaces | grep -z "service/kubernetes") &> /dev/null &&
+       (/snap/bin/microk8s.kubectl get no | grep -z " Ready") &> /dev/null
+    then
+        status="Running"
+    fi
+}
+
+
+# Main flow #
+parse_args "$@"
+if ! [ -z ${wait_ready} ]
+then
+    wait_for_ready
+fi
+check_ready
+format_output

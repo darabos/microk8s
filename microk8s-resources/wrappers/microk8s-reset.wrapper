@@ -33,4 +33,5 @@ clean_cluster() {
 
 sudo systemctl restart snap.${SNAP_NAME}.daemon-docker
 clean_cluster
+rm -f ${SNAP_DATA}/var/run/addons/*
 sudo systemctl restart snap.${SNAP_NAME}.daemon-apiserver

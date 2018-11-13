@@ -18,18 +18,26 @@ if echo "$*" | grep -q -- '--help'; then
     for action in $actions; do
         echo "  $action"
     done
-    exit
+    exit 0
 fi
 
+result=1
+sudo mkdir -p "${SNAP_DATA}/var/run/addons"
 for action in "$@"; do
   # If there is a script to execute for the action $1 run the script and ignore any yamls
   if [ -f "${SNAP}/actions/disable.$action.sh" ]; then
     "${SNAP}/actions/disable.$action.sh"
+    sudo rm "${SNAP_DATA}/var/run/addons/$action"
+    result=0
   elif [ -f "${SNAP}/actions/$action.yaml" ]; then
     echo "Disabling $action"
     use_manifest $action delete
     echo "$action disabled"
+    sudo rm "${SNAP_DATA}/var/run/addons/$action"
+    result=0
   else
     echo "Nothing to do for $action"
+    exit 1
   fi
 done
+exit $result

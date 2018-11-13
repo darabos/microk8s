@@ -11,25 +11,48 @@ if echo "$*" | grep -q -- '--help'; then
     echo "Enable one or more ADDON included with microk8s"
     echo "Example: $prog dns storage"
     echo
-    echo "Available addons:"
+    echo "Use --list to view all available addons."
+    echo "Example: $prog --list"
     echo
     actions="$(find "${SNAP}/actions" -maxdepth 1 -name '*.yaml' -or -name 'enable.*.sh')"
     actions="$(echo "$actions" | sed -e 's/.*[/.]\([^.]*\)\..*/\1/' | sort | uniq)"
     for action in $actions; do
         echo "  $action"
     done
-    exit
+    exit 0
 fi
 
+if echo "$*" | grep -q -- '--list'; then
+    actions="$(find "${SNAP}/actions" -maxdepth 1 -name '*.yaml' -or -name 'enable.*.sh')"
+    actions="$(echo "$actions" | sed -e 's/.*[/.]\([^.]*\)\..*/\1/' | sort | uniq)"
+    for action in $actions; do
+        if [ -f "${SNAP_DATA}/var/run/addons/$action" ]
+        then
+          echo "$action enabled"
+        else
+          echo "$action disabled"
+        fi
+    done
+    exit 0
+fi
+
+result=1
+sudo mkdir -p "${SNAP_DATA}/var/run/addons"
 for action in "$@"; do
   # If there is a script to execute for the $action run the script and ignore any yamls
   if [ -f "${SNAP}/actions/enable.$action.sh" ]; then
     "${SNAP}/actions/enable.$action.sh"
+    sudo touch "${SNAP_DATA}/var/run/addons/$action"
+    result=0
   elif [ -f "${SNAP}/actions/$action.yaml" ]; then
     echo "Enabling $action"
     use_manifest $action apply
     echo "$action enabled"
+    sudo touch "${SNAP_DATA}/var/run/addons/$action"
+    result=0
   else
     echo "Nothing to do for $action"
+    exit 1
   fi
 done
+exit $result
